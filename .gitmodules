@@ -1,0 +1,6 @@
+[submodule "external/nn_cpp"]
+	path = external/nn_cpp
+	url = git@github.com:bcaine/nn_cpp.git
+[submodule "external/cpp-btree"]
+	path = external/cpp-btree
+	url = https://github.com/algorithm-ninja/cpp-btree.git
