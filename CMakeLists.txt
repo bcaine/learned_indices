@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 project(autoindex CXX)
-#include_directories(nn)
 
+option(AUTOINDEX_BUILD_TESTS "Whether to build tests" ON)
 set(CMAKE_CXX_STANDARD 11)
 
 # Add nn_cpp
@@ -13,4 +13,20 @@ target_include_directories(cpp_btree PUBLIC cpp_btree)
 set_target_properties(cpp_btree PROPERTIES LINKER_LANGUAGE CXX)
 
 add_executable(autoindex main.cpp)
-target_link_libraries(autoindex cpp_btree neural_net)
+target_link_libraries(autoindex cpp_btree nn_cpp)
+
+if (AUTOINDEX_BUILD_TESTS)
+
+    find_package(Boost COMPONENTS unit_test_framework)
+
+    if (Boost_FOUND)
+        enable_testing()
+        add_executable(btree_test tests/BtreeTests.cpp)
+        target_link_libraries(btree_test ${Boost_LIBRARIES} cpp_btree)
+        add_test(NAME btree_test WORKING_DIRECTORY ${CMAKE_BINARY_DIR} COMMAND btree_test)
+
+        add_executable(nn_index_test tests/NetworkIndexTests.cpp)
+        target_link_libraries(nn_index_test ${Boost_LIBRARIES} nn_cpp)
+        add_test(NAME nn_index_test WORKING_DIRECTORY ${CMAKE_BINARY_DIR} COMMAND nn_index_test)
+    endif()
+endif()
