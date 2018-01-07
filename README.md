@@ -5,7 +5,7 @@ This is based on the B-Tree section of [The Case for Learned Index Structures](h
 ### Dependencies
 
 - [nn_cpp](https://github.com/bcaine/nn_cpp) - Eigen based minimalistic C++ Neural Network library
-- [STX B+ Tree](https://panthema.net/2007/stx-btree/) - A fast C++ implementation of a B+ Tree (can be installed on Ubuntu 16.04 as sudo apt-get install stx-btree-dev)
+- [cpp-btree](https://code.google.com/archive/p/cpp-btree/) - A fast C++ implementation of a B+ Tree
 
 
 
