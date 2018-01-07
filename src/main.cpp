@@ -7,22 +7,26 @@
  * @author Ben Caine
  */
 
+#include "utils/DataGenerators.h"
 #include "RecursiveModelIndex.h"
 
 int main() {
     NetworkParameters params;
-    params.batchSize = 128;
-    params.maxNumEpochs = 10000;
+    params.batchSize = 256;
+    params.maxNumEpochs = 25000;
     params.learningRate = 0.01;
     params.numNeurons = 8;
 
-    RecursiveModelIndex<int, int, 100> recursiveModelIndex(params);
+    RecursiveModelIndex<int, int, 100> recursiveModelIndex(params, 100000);
 
+    const size_t datasetSize = 100010;
+    float maxValue = 1e5;
 
-    int numValues = 10000;
-    for (int ii = 0; ii < numValues; ++ii) {
-        recursiveModelIndex.insert(ii, ii * 2);
+    auto values = getIntegerLognormals<int, datasetSize>(maxValue);
+    for (auto val : values) {
+        recursiveModelIndex.insert(val, val + 1);
     }
+
 
     auto result = recursiveModelIndex.find(5000);
 

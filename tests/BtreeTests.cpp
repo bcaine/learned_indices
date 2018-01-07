@@ -13,7 +13,7 @@
 #include <boost/test/unit_test.hpp>
 #include <chrono>
 #include "../external/cpp-btree/btree_map.h"
-#include "DataGenerators.h"
+#include "../src/utils/DataGenerators.h"
 
 BOOST_AUTO_TEST_CASE(btree_basic_test) {
     btree::btree_map<int, std::string> map;

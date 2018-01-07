@@ -11,6 +11,8 @@
 #define LEARNED_INDICES_DATAGENERATORS_H
 
 #include <random>
+#include <array>
+#include <algorithm>
 
 /**
  * @brief Generate integer type lognormals scaled to a desired max value

@@ -16,7 +16,7 @@
 #include <iomanip>
 #include <fstream>
 #include <unordered_set>
-#include "DataGenerators.h"
+#include "../src/utils/DataGenerators.h"
 #include "../external/nn_cpp/nn/Net.h"
 
 
