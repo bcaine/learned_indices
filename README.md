@@ -1,4 +1,4 @@
-## Autoindex is a C++ implementation of a learned index structure.
+## A C++11 implementation of the B-Tree part of "The Case for Learned Index Structures"
 
 This is based on the B-Tree section of [The Case for Learned Index Structures](https://arxiv.org/pdf/1712.01208.pdf) paper, and depends on [nn_cpp](https://github.com/bcaine/nn_cpp), which is a minimalistic Eigen based neural network library.
 
