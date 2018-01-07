@@ -7,8 +7,8 @@
  * @author Ben Caine
  */
 
-#ifndef AUTOINDEX_DATAGENERATORS_H
-#define AUTOINDEX_DATAGENERATORS_H
+#ifndef LEARNED_INDICES_DATAGENERATORS_H
+#define LEARNED_INDICES_DATAGENERATORS_H
 
 #include <random>
 
@@ -45,4 +45,4 @@ std::array<Dtype, Length> getIntegerLognormals(double desiredMaxValue = 1e7, dou
 };
 
 
-#endif //AUTOINDEX_DATAGENERATORS_H
+#endif //LEARNED_INDICES_DATAGENERATORS_H

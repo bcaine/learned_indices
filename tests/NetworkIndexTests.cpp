@@ -35,12 +35,21 @@ std::unordered_set<size_t> getRandomSubset(int numValues, int maxValue) {
 
 BOOST_AUTO_TEST_CASE(basic_net) {
 
+    /**
+     * This is a test of a simple network predicting the position in a sorted list of integer
+     * lognormals generated from a lognormal distribution of mean = 0, std = 2.0, where
+     * we scale all the values such that the max value is equal to maxValue.
+     *
+     * This gives us a test of convergence, hyperparam sensitivity, ext for predicting a general location
+     * of a value in a sorted list, and acts as a precursor to the first level of the
+     * Recursive Model Index
+     */
     // Hyperparams
-    int batchSize = 128;
+    int batchSize = 256;
     int numNeurons = 8;
-    float learningRate = 0.005;
+    float learningRate = 0.01;
     int numEpochs = 25000;
-    const size_t datasetSize = 500000;
+    const size_t datasetSize = 100000;
     float maxValue = 1e5;
 
     auto values = getIntegerLognormals<size_t, datasetSize>(maxValue);
@@ -82,7 +91,9 @@ BOOST_AUTO_TEST_CASE(basic_net) {
         std::cout << "Epoch: " << currentEpoch << " Loss: " << loss << std::endl;
         outputFile << currentEpoch << ", " << loss << "\n";
 
-        net.backward<2>(lossFunction.backward(result, positions));
+        auto lossBack = lossFunction.backward(result, positions);
+        lossBack = lossBack / lossBack.constant(datasetSize);
+        net.backward<2>(lossBack);
         net.step();
     }
     auto endTime = std::chrono::system_clock::now();
