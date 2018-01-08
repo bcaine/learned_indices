@@ -20,7 +20,7 @@ int main() {
     NetworkParameters secondStageParams;
     secondStageParams.batchSize = 64;
     secondStageParams.maxNumEpochs = 1000;
-    secondStageParams.learningRate = 0.001;
+    secondStageParams.learningRate = 0.01;
 
     RecursiveModelIndex<int, int, 100> recursiveModelIndex(firstStageParams, secondStageParams, 10000000);
 
