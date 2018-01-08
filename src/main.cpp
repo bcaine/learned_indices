@@ -22,7 +22,7 @@ int main() {
     secondStageParams.maxNumEpochs = 1000;
     secondStageParams.learningRate = 0.01;
 
-    RecursiveModelIndex<int, int, 100> recursiveModelIndex(firstStageParams, secondStageParams, 10000000);
+    RecursiveModelIndex<int, int, 100> recursiveModelIndex(firstStageParams, secondStageParams, 1000);
 
     const size_t datasetSize = 10000;
     float maxValue = 1e5;

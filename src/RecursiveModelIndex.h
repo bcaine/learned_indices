@@ -10,19 +10,12 @@
 #ifndef LEARNED_INDICES_RECURSIVEMODELINDEX_H
 #define LEARNED_INDICES_RECURSIVEMODELINDEX_H
 
+#include "SecondStageNode.h"
 #include "utils/DataUtils.h"
+#include "utils/NetworkParameters.h"
 #include "../external/nn_cpp/nn/Net.h"
 #include "../external/cpp-btree/btree_map.h"
 
-/**
- * @brief A container for the hyperparameters of our first level network
- */
-struct NetworkParameters {
-    int batchSize;      ///< The batch size of our network
-    int maxNumEpochs;   ///< The max number of epochs to train the network for
-    float learningRate; ///< The learning rate of our Adam solver
-    int numNeurons;     ///< The number of neurons
-};
 
 /**
  * @brief An implementation of the recursive model index
@@ -38,10 +31,12 @@ public:
      * @brief Create a RMI
      * @param firstStageParams [in]: The first layer network parameters
      * @param secondStageParams [in]: The second stage network parameters
+     * @param maxSecondStageError [in]: The max second stage error allowed before replacing with BTree
      * @param maxOverflowSize [in]: The max size our overflow BTree can get to before we force a retrain
      */
     explicit RecursiveModelIndex(const NetworkParameters &firstStageParams,
                                  const NetworkParameters &secondStageParams,
+                                 int maxSecondStageError = 256,
                                  int maxOverflowSize = 10000);
 
     //TODO: Is it more common to pass a pair?
@@ -78,13 +73,13 @@ private:
     void trainSecondStage();
 
     ///------------ Data members ----------------
-
     std::vector<std::pair<KeyType, ValueType>> m_data;                 ///< The data our learned index tries to find
 
     NetworkParameters m_firstStageParams;                              ///< First stage network parameters
     NetworkParameters m_secondStageParams;                             ///< Our second stage network parameters
     std::unique_ptr<nn::Net<float>> m_firstStageNetwork;               ///< The first stage neural network
-    std::array<nn::Net<float>, secondStageSize> m_secondStageNetworks; ///< The second stage networks
+    std::vector<SecondStageNode<KeyType>> m_secondStage;                   ///< The second stage (network or btree)
+    int m_maxSecondStageError;                                         ///< Max second stage error before replacing with btree
 
     int m_currentOverflowSize;                                         ///< Number of inserts stored in overflow array
     int m_maxOverflowSize;                                             ///< Max size we let overflow array get before retraining
@@ -95,8 +90,10 @@ private:
 template <typename KeyType, typename ValueType, int secondStageSize>
 RecursiveModelIndex<KeyType, ValueType, secondStageSize>::RecursiveModelIndex(const NetworkParameters &firstStageParams,
                                                                               const NetworkParameters &secondStageParams,
+                                                                              int maxSecondStageError,
                                                                               int maxOverflowSize):
-    m_firstStageParams(firstStageParams), m_secondStageParams(secondStageParams), m_maxOverflowSize(maxOverflowSize)
+    m_firstStageParams(firstStageParams), m_secondStageParams(secondStageParams),
+    m_maxSecondStageError(maxSecondStageError), m_maxOverflowSize(maxOverflowSize)
 {
 
     // Create our first network
@@ -107,8 +104,7 @@ RecursiveModelIndex<KeyType, ValueType, secondStageSize>::RecursiveModelIndex(co
 
     // Create all our second stage models
     for (size_t ii = 0; ii < secondStageSize; ++ii) {
-        m_secondStageNetworks[ii] = nn::Net<float>();
-        m_secondStageNetworks[ii].add(new nn::Dense<float, 2>(secondStageParams.batchSize, 1, 1, true, nn::InitializationScheme::GlorotNormal));
+        m_secondStage.emplace_back(SecondStageNode<KeyType>(m_maxSecondStageError, secondStageParams.batchSize));
     }
 }
 
@@ -227,80 +223,7 @@ void RecursiveModelIndex<KeyType, ValueType, secondStageSize>::trainSecondStage(
     std::cout << "Training second stage" << std::endl;
     // Train each stage
     for (int stage = 0; stage < secondStageSize; ++stage) {
-        size_t datasetSize = perStageDataset[stage].size();
-
-        if (datasetSize == 0) {
-            std::cerr << "Dataset for stage: " << stage << " is empty" << std::endl;
-            continue;
-        }
-
-        // Make sure batchSize is <= dataset size
-        int batchSize = std::min(m_secondStageParams.batchSize, static_cast<int>(datasetSize));
-
-        // If batch size is smaller than what we preassigned, reassign net
-        if (batchSize < m_secondStageParams.batchSize) {
-            m_secondStageNetworks[stage] = nn::Net<float>();
-            m_secondStageNetworks[stage].add(new nn::Dense<float, 2>(batchSize, 1, 1, true, nn::InitializationScheme::GlorotNormal));
-        }
-
-        nn::Net<float> &net = m_secondStageNetworks[stage];
-        net.registerOptimizer(new nn::Adam<float>(m_secondStageParams.learningRate));
-
-        Eigen::Tensor<float, 2> input(batchSize, 1);
-        Eigen::Tensor<float, 2> positions(batchSize, 1);
-        nn::HuberLoss<float, 2> lossFunc;
-
-        for (int currentEpoch = 0; currentEpoch < m_secondStageParams.maxNumEpochs; ++currentEpoch) {
-            auto newBatch = getRandomBatch<KeyType>(batchSize, datasetSize);
-            int ii = 0;
-            for (auto idx : newBatch) {
-                // In this stage, perStageDataset is pair {key, idx}
-                // Input is the key
-                input(ii, 0) = static_cast<float>(perStageDataset[stage][idx].first);
-                // Label is the position in our sorted array
-                positions(ii, 0) = static_cast<float>(perStageDataset[stage][idx].second);
-                ii++;
-            }
-
-            auto result = net.forward<2, 2>(input);
-            result = result * result.constant(datasetSize);
-
-            auto loss = lossFunc.loss(result, positions);
-            auto lossBack = lossFunc.backward(result, positions);
-
-            // TODO: Add logging, make debug message
-//            std::cout << "Stage: " << stage << " Epoch: " << currentEpoch << " loss: " << loss << std::endl;
-            lossBack = lossBack / lossBack.constant(datasetSize);
-
-            net.backward<2>(lossBack);
-            net.step();
-        }
-
-        // Once trained, we want to calculate best/worst case accuracy, and if > thresh turn it into a btree
-        Eigen::Tensor<float, 2> data(1, 1);
-        long currentMaxAbsoluteError = 0;
-
-        for (int ii = 0; ii < datasetSize; ++ii) {
-            const KeyType &key = perStageDataset[stage][ii].first;
-            const size_t &idx = perStageDataset[stage][ii].second;
-            data(0, 0) = static_cast<float>(key);
-
-            auto result = net.forward<2, 2>(data);
-            result = result * result.constant(m_data.size());
-
-            long predictedIdx = static_cast<long>(result(0, 0));
-            if (predictedIdx < 0) {
-                predictedIdx = 0;
-            }
-
-            auto absError = std::abs(predictedIdx - static_cast<long>(idx));
-            if (absError > currentMaxAbsoluteError) {
-                std::cout << "Predicted: " << predictedIdx << " actual: " << idx << std::endl;
-                currentMaxAbsoluteError = absError;
-            }
-        }
-
-        std::cout << "Max abs error for stage: " << stage << " is: " << currentMaxAbsoluteError << std::endl;
+        m_secondStage[stage].train(perStageDataset[stage], m_secondStageParams, m_data.size());
     }
 }
 
