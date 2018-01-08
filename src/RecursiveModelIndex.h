@@ -48,7 +48,6 @@ public:
      */
     void insert(KeyType key, ValueType value);
 
-    //TODO: What to do if not found
     /**
      * @brief Find a specific item from the tree
      * @param key [in]: A key to search for
