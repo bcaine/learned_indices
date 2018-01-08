@@ -11,13 +11,18 @@
 #include "RecursiveModelIndex.h"
 
 int main() {
-    NetworkParameters params;
-    params.batchSize = 256;
-    params.maxNumEpochs = 25000;
-    params.learningRate = 0.01;
-    params.numNeurons = 8;
+    NetworkParameters firstStageParams;
+    firstStageParams.batchSize = 256;
+    firstStageParams.maxNumEpochs = 25000;
+    firstStageParams.learningRate = 0.01;
+    firstStageParams.numNeurons = 8;
 
-    RecursiveModelIndex<int, int, 100> recursiveModelIndex(params, 100000);
+    NetworkParameters secondStageParams;
+    secondStageParams.batchSize = 32;
+    secondStageParams.maxNumEpochs = 1000;
+    secondStageParams.learningRate = 0.01;
+
+    RecursiveModelIndex<int, int, 100> recursiveModelIndex(firstStageParams, secondStageParams, 100000);
 
     const size_t datasetSize = 100010;
     float maxValue = 1e5;

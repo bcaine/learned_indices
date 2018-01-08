@@ -24,7 +24,7 @@
  */
 template <typename KeyType>
 std::unordered_set<KeyType> getRandomBatch(int batchSize, int datasetSize) {
-    assert(datasetSize > batchSize && "Dataset size is smaller than requested batch size, which causes an infinite loop");
+    assert(datasetSize >= batchSize && "Dataset size is smaller than requested batch size, which causes an infinite loop");
 
     std::unordered_set<KeyType> randomKeys;
     auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
