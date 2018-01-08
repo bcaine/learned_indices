@@ -15,6 +15,7 @@
 #include "utils/NetworkParameters.h"
 #include "../external/nn_cpp/nn/Net.h"
 #include "../external/cpp-btree/btree_map.h"
+#include <boost/optional.hpp>
 
 
 /**
@@ -53,7 +54,7 @@ public:
      * @param key [in]: A key to search for
      * @return A pair of (key, value) if found.
      */
-    std::pair<KeyType, ValueType> find(KeyType key);
+    boost::optional<std::pair<KeyType, ValueType>> find(KeyType key);
 
     /**
      * @brief Train our index structure
@@ -120,14 +121,56 @@ void RecursiveModelIndex<KeyType, ValueType, secondStageSize>::insert(KeyType ke
 };
 
 template <typename KeyType, typename ValueType, int secondStageSize>
-std::pair<KeyType, ValueType> RecursiveModelIndex<KeyType, ValueType, secondStageSize>::find(KeyType key) {
+boost::optional<std::pair<KeyType, ValueType>> RecursiveModelIndex<KeyType, ValueType, secondStageSize>::find(KeyType key) {
     // TODO: Order of searching?
-    auto result = std::find_if(m_overflowArray.begin(), m_overflowArray.end(), [&](const std::pair<KeyType, ValueType> &pair) {
+    auto overflowResult = std::find_if(m_overflowArray.begin(), m_overflowArray.end(), [&](const std::pair<KeyType, ValueType> &pair) {
         return pair.first == key;
     });
 
-    if (result != m_overflowArray.end()) {
-        return *result;
+    if (overflowResult != m_overflowArray.end()) {
+        return *overflowResult;
+    }
+
+    // Now search using the RecursiveModelIndex!
+    Eigen::Tensor<float, 2> input(1, 1);
+    input(0, 0) = static_cast<float>(key);
+
+    auto result = m_firstStageNetwork->forward<2, 2>(input);
+    auto resultIdx = result * result.constant(m_data.size());
+
+    // Calculate which stage we want to send this data to
+    // If we take the result (unscaled, so closer to 0-1), and multiply by the
+    // number of stages we get an assignment
+    int stage = static_cast<int>(result(0, 0) * secondStageSize);
+
+    // Cap the range of stages to 0 -> (secondStageSize - 1)
+    stage = std::max(0, stage);
+    stage = std::min(secondStageSize - 1, stage);
+
+    if (m_secondStage[stage].isValid()) {
+        if (m_secondStage[stage].useTree()) {
+            auto treeResult = m_secondStage[stage].treeFind(key);
+            if (treeResult) {
+                return {key, m_data[treeResult.get().second]};
+            } else {
+                return {};
+            }
+        } else {
+            size_t predictedIdx = m_secondStage[stage].predict(key, m_data.size());
+            // Search from min to max around predictedIdx
+            size_t startIdx = predictedIdx - m_secondStage[stage].getMaxNegativeError();
+            size_t endIdx = predictedIdx + m_secondStage[stage].getMaxPositiveError();
+            auto findResult = std::find_if(m_data.begin() + startIdx, m_data.begin() + endIdx,
+                                           [&](const std::pair<KeyType, ValueType> &pair) {
+                                               return pair.first == key;
+                                           });
+
+            if (findResult != m_data.begin() + endIdx) {
+                return *findResult;
+            } else {
+                return {};
+            }
+        }
     }
 
     return {};
@@ -206,8 +249,6 @@ void RecursiveModelIndex<KeyType, ValueType, secondStageSize>::trainSecondStage(
         // Get result from first stage, and then scale
         auto result = m_firstStageNetwork->forward<2, 2>(predictInput);
         auto resultIdx = result * result.constant(m_data.size());
-
-        std::cout << m_data[ii].first << " result: " << resultIdx << std::endl;
 
         // Calculate which stage we want to send this data to
         // If we take the result (unscaled, so closer to 0-1), and multiply by the

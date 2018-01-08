@@ -22,7 +22,7 @@ int main() {
     secondStageParams.maxNumEpochs = 1000;
     secondStageParams.learningRate = 0.01;
 
-    RecursiveModelIndex<int, int, 100> recursiveModelIndex(firstStageParams, secondStageParams, 1000);
+    RecursiveModelIndex<int, int, 100> recursiveModelIndex(firstStageParams, secondStageParams, 1e6);
 
     const size_t datasetSize = 10000;
     float maxValue = 1e5;
@@ -34,12 +34,13 @@ int main() {
 
     recursiveModelIndex.train();
 
-    auto result = recursiveModelIndex.find(5000);
-
-    if (result.first == 0) {
-        std::cout << "Could not find" << std::endl;
-    } else {
-        std::cout << result.first << ", " << result.second << std::endl;
+    for (unsigned int ii = 0; ii < 100; ++ii) {
+        auto result = recursiveModelIndex.find(values[ii]);
+        if (result) {
+            std::cout << result.get().first << ", " << result.get().second << std::endl;
+        } else {
+            std::cout << "Failed to find value that should be there" << std::endl;
+        }
     }
 
     return 0;

@@ -14,6 +14,7 @@
 #include "../external/cpp-btree/btree_map.h"
 #include "utils/DataUtils.h"
 #include "utils/NetworkParameters.h"
+#include <boost/optional.hpp>
 
 // TODO: This doesn't protect against calling tree related funcs if no tree
 // TODO: Nor does it protect against calling the network before training
@@ -82,7 +83,7 @@ public:
      * @param key [in]: The key to use to search
      * @return A pair of key, idx if saved
      */
-    std::pair<KeyType, size_t> treeFind(KeyType key);
+    boost::optional<std::pair<KeyType, size_t>> treeFind(KeyType key);
 
 private:
     bool m_useTree;                           ///< Whether to use the tree or not
@@ -110,9 +111,14 @@ SecondStageNode<KeyType>::SecondStageNode(int positionErrorThreshold, int netBat
 }
 
 template <typename KeyType>
-std::pair<KeyType, size_t> SecondStageNode<KeyType>::treeFind(KeyType key) {
+boost::optional<std::pair<KeyType, size_t>> SecondStageNode<KeyType>::treeFind(KeyType key) {
     assert(m_useTree && "Called treeFind but the tree isn't supposed to be used");
-    return m_tree.find(key);
+    auto result = m_tree.find(key);
+    if (result != m_tree.end()) {
+        return std::pair<KeyType, size_t>(result->first, result->second);
+    } else {
+        return {};
+    }
 }
 
 template <typename KeyType>

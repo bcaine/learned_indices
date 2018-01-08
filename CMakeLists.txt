@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD 11)
 # Add nn_cpp
 add_subdirectory(external/nn_cpp)
 
+find_package(Boost REQUIRED)
+
 file(GLOB cpp_btree_sources external/cpp-btree/*.h)
 add_library(cpp_btree STATIC ${cpp_btree_sources})
 target_include_directories(cpp_btree PUBLIC cpp_btree)
