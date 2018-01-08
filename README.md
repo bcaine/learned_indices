@@ -7,10 +7,18 @@ The general design is to have a single lookup structure that you can parameteriz
 The basic API:
 
 ```c++
-auto modelIndex = RecursiveModelIndex<int, int, 128> recursiveModelIndex(firstStageParams, secondStageParams, 256, 1e6);
- 
-modelIndex.insert(5, 15);
-modelIndex.insert(15, 5);
+
+// [first/second]StageParams are network parameters
+int maxAllowedError = 256;
+int maxBufferBeforeRetrain = 10001;
+auto modelIndex = RecursiveModelIndex<int, int, 128> recursiveModelIndex(firstStageParams, secondStageParams, maxAllowedError, maxBufferBeforeRetrain);
+
+for (int ii = 0; ii < 10000; ++ii) {
+    modelIndex.insert(ii, ii * 2);
+}
+
+// Since we still have one more insert before retraining, retrain before searching...
+modelIndex.train();
  
 auto result = modelIndex.find(5);
  
