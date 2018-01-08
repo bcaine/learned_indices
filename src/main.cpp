@@ -14,17 +14,17 @@ int main() {
     NetworkParameters firstStageParams;
     firstStageParams.batchSize = 256;
     firstStageParams.maxNumEpochs = 25000;
-    firstStageParams.learningRate = 0.01;
+    firstStageParams.learningRate = 0.005;
     firstStageParams.numNeurons = 8;
 
     NetworkParameters secondStageParams;
-    secondStageParams.batchSize = 32;
+    secondStageParams.batchSize = 64;
     secondStageParams.maxNumEpochs = 1000;
-    secondStageParams.learningRate = 0.01;
+    secondStageParams.learningRate = 0.001;
 
-    RecursiveModelIndex<int, int, 100> recursiveModelIndex(firstStageParams, secondStageParams, 100000);
+    RecursiveModelIndex<int, int, 100> recursiveModelIndex(firstStageParams, secondStageParams, 10000000);
 
-    const size_t datasetSize = 100010;
+    const size_t datasetSize = 10000;
     float maxValue = 1e5;
 
     auto values = getIntegerLognormals<int, datasetSize>(maxValue);
@@ -32,6 +32,7 @@ int main() {
         recursiveModelIndex.insert(val, val + 1);
     }
 
+    recursiveModelIndex.train();
 
     auto result = recursiveModelIndex.find(5000);
 

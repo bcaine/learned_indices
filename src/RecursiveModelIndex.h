@@ -105,7 +105,7 @@ RecursiveModelIndex<KeyType, ValueType, secondStageSize>::RecursiveModelIndex(co
     m_firstStageNetwork->add(new nn::Relu<float, 2>());
     m_firstStageNetwork->add(new nn::Dense<float, 2>(firstStageParams.batchSize, firstStageParams.numNeurons, 1, true, nn::InitializationScheme::GlorotNormal));
 
-    // Create all our linear models
+    // Create all our second stage models
     for (size_t ii = 0; ii < secondStageSize; ++ii) {
         m_secondStageNetworks[ii] = nn::Net<float>();
         m_secondStageNetworks[ii].add(new nn::Dense<float, 2>(secondStageParams.batchSize, 1, 1, true, nn::InitializationScheme::GlorotNormal));
@@ -201,16 +201,23 @@ template <typename KeyType, typename ValueType, int secondStageSize>
 void RecursiveModelIndex<KeyType, ValueType, secondStageSize>::trainSecondStage() {
     std::cout << "Creating per stage dataset" << std::endl;
 
-    // Create training sets for linear model
+    // Create training sets for second stage models
     std::array<std::vector<std::pair<KeyType, size_t>>, secondStageSize> perStageDataset;
     Eigen::Tensor<float, 2> predictInput(1, 1);
     for (int ii = 0; ii < m_data.size(); ++ii) {
         predictInput(0, 0) = static_cast<float>(m_data[ii].first);
+
+        // Get result from first stage, and then scale
         auto result = m_firstStageNetwork->forward<2, 2>(predictInput);
-        result = result * result.constant(m_data.size());
+        auto resultIdx = result * result.constant(m_data.size());
+
+        std::cout << m_data[ii].first << " result: " << resultIdx << std::endl;
 
         // Calculate which stage we want to send this data to
-        int stage = static_cast<int>(result(0, 0)) / secondStageSize;
+        // If we take the result (unscaled, so closer to 0-1), and multiply by the
+        // number of stages we get an assignment
+        int stage = static_cast<int>(result(0, 0) * secondStageSize);
+
         // Cap the range of stages to 0 -> (secondStageSize - 1)
         stage = std::max(0, stage);
         stage = std::min(secondStageSize - 1, stage);
@@ -261,14 +268,39 @@ void RecursiveModelIndex<KeyType, ValueType, secondStageSize>::trainSecondStage(
             auto loss = lossFunc.loss(result, positions);
             auto lossBack = lossFunc.backward(result, positions);
 
-            std::cout << "Stage: " << stage << " Epoch: " << currentEpoch << " loss: " << loss << std::endl;
-            // Divide loss back by dataset size to stabilize training and remove relationship between
-            // learning rate and dataset size
+            // TODO: Add logging, make debug message
+//            std::cout << "Stage: " << stage << " Epoch: " << currentEpoch << " loss: " << loss << std::endl;
             lossBack = lossBack / lossBack.constant(datasetSize);
 
             net.backward<2>(lossBack);
             net.step();
         }
+
+        // Once trained, we want to calculate best/worst case accuracy, and if > thresh turn it into a btree
+        Eigen::Tensor<float, 2> data(1, 1);
+        long currentMaxAbsoluteError = 0;
+
+        for (int ii = 0; ii < datasetSize; ++ii) {
+            const KeyType &key = perStageDataset[stage][ii].first;
+            const size_t &idx = perStageDataset[stage][ii].second;
+            data(0, 0) = static_cast<float>(key);
+
+            auto result = net.forward<2, 2>(data);
+            result = result * result.constant(m_data.size());
+
+            long predictedIdx = static_cast<long>(result(0, 0));
+            if (predictedIdx < 0) {
+                predictedIdx = 0;
+            }
+
+            auto absError = std::abs(predictedIdx - static_cast<long>(idx));
+            if (absError > currentMaxAbsoluteError) {
+                std::cout << "Predicted: " << predictedIdx << " actual: " << idx << std::endl;
+                currentMaxAbsoluteError = absError;
+            }
+        }
+
+        std::cout << "Max abs error for stage: " << stage << " is: " << currentMaxAbsoluteError << std::endl;
     }
 }
 
