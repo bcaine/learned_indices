@@ -11,7 +11,10 @@ The basic API:
 // [first/second]StageParams are network parameters
 int maxAllowedError = 256;
 int maxBufferBeforeRetrain = 10001;
-auto modelIndex = RecursiveModelIndex<int, int, 128> recursiveModelIndex(firstStageParams, secondStageParams, maxAllowedError, maxBufferBeforeRetrain);
+auto modelIndex = RecursiveModelIndex<int, int, 128> recursiveModelIndex(firstStageParams, 
+                                                                         secondStageParams, 
+                                                                         maxAllowedError, 
+                                                                         maxBufferBeforeRetrain);
 
 for (int ii = 0; ii < 10000; ++ii) {
     modelIndex.insert(ii, ii * 2);
@@ -25,7 +28,7 @@ auto result = modelIndex.find(5);
 if (result) {
     std::cout << "Yay! We got: " << result.get().first << ", " << result.get().second << std::endl;
 } else {
-    std::cout << "We didn't find your value." << std::endl; // This shouldn't happen in the above usage...
+    std::cout << "Value not found." << std::endl; // This shouldn't happen in the above usage...
 }
 ```
 
