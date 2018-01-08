@@ -94,7 +94,6 @@ private:
     std::unique_ptr<nn::Net<float>> m_net;    ///< Our network for this stage
     int m_maxNegativeError;                   ///< Max error (negative) of a prediction
     int m_maxPositiveError;                   ///< Max error (positive) of a prediction
-    int m_datasetSize;                        ///< The current dataset size
 
     /// Tree related items
     btree::btree_map<KeyType, size_t> m_tree; ///< The tree if needed
@@ -142,6 +141,8 @@ void SecondStageNode<KeyType>::train(const std::vector<std::pair<KeyType, size_t
         m_nodeIsValid = false;
         return;
     }
+    // If we have data, we have a valid node
+    m_nodeIsValid = true;
 
     // Make sure batchSize is <= dataset size
     int batchSize = std::min(trainingParameters.batchSize, static_cast<int>(trainingDatasetSize));
@@ -200,7 +201,7 @@ void SecondStageNode<KeyType>::train(const std::vector<std::pair<KeyType, size_t
         result = result * result.constant(totalDatasetSize);
 
         long predictedIdx = static_cast<long>(result(0, 0));
-        auto error = predictedIdx - static_cast<long>(idx);
+        auto error = static_cast<long>(idx) - predictedIdx;
 
         if (error < m_maxNegativeError) {
             m_maxNegativeError = error;

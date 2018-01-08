@@ -147,8 +147,12 @@ boost::optional<std::pair<KeyType, ValueType>> RecursiveModelIndex<KeyType, Valu
     stage = std::max(0, stage);
     stage = std::min(secondStageSize - 1, stage);
 
+    std::cout << "Finding: " << key << " Predicted: " << resultIdx << " assigned to stage: " << stage << std::endl;
+
     if (m_secondStage[stage].isValid()) {
         if (m_secondStage[stage].useTree()) {
+
+            std::cout << "Using tree" << std::endl;
             auto treeResult = m_secondStage[stage].treeFind(key);
             if (treeResult) {
                 return {key, m_data[treeResult.get().second]};
@@ -156,10 +160,12 @@ boost::optional<std::pair<KeyType, ValueType>> RecursiveModelIndex<KeyType, Valu
                 return {};
             }
         } else {
-            size_t predictedIdx = m_secondStage[stage].predict(key, m_data.size());
+            // TODO: Too much casting, long vs size_t vs int... Clean this mess up. Bugs have to be everywhere
+            long predictedIdx = m_secondStage[stage].predict(key, m_data.size());
             // Search from min to max around predictedIdx
-            size_t startIdx = predictedIdx - m_secondStage[stage].getMaxNegativeError();
-            size_t endIdx = predictedIdx + m_secondStage[stage].getMaxPositiveError();
+            size_t startIdx = std::max(static_cast<long>(0), predictedIdx + m_secondStage[stage].getMaxNegativeError());
+            size_t endIdx = std::min(m_data.size() - 1, static_cast<size_t>(predictedIdx + m_secondStage[stage].getMaxPositiveError()));
+
             auto findResult = std::find_if(m_data.begin() + startIdx, m_data.begin() + endIdx,
                                            [&](const std::pair<KeyType, ValueType> &pair) {
                                                return pair.first == key;
@@ -171,6 +177,8 @@ boost::optional<std::pair<KeyType, ValueType>> RecursiveModelIndex<KeyType, Valu
                 return {};
             }
         }
+    } else {
+        std::cerr << "Key: " << key << " requested an invalid stage two node" << std::endl;
     }
 
     return {};

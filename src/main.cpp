@@ -14,7 +14,7 @@ int main() {
     NetworkParameters firstStageParams;
     firstStageParams.batchSize = 256;
     firstStageParams.maxNumEpochs = 25000;
-    firstStageParams.learningRate = 0.005;
+    firstStageParams.learningRate = 0.01;
     firstStageParams.numNeurons = 8;
 
     NetworkParameters secondStageParams;
@@ -22,7 +22,7 @@ int main() {
     secondStageParams.maxNumEpochs = 1000;
     secondStageParams.learningRate = 0.01;
 
-    RecursiveModelIndex<int, int, 100> recursiveModelIndex(firstStageParams, secondStageParams, 1e6);
+    RecursiveModelIndex<int, int, 100> recursiveModelIndex(firstStageParams, secondStageParams, 256, 1e6);
 
     const size_t datasetSize = 10000;
     float maxValue = 1e5;
@@ -34,7 +34,7 @@ int main() {
 
     recursiveModelIndex.train();
 
-    for (unsigned int ii = 0; ii < 100; ++ii) {
+    for (unsigned int ii = 0; ii < datasetSize; ii += 500) {
         auto result = recursiveModelIndex.find(values[ii]);
         if (result) {
             std::cout << result.get().first << ", " << result.get().second << std::endl;
